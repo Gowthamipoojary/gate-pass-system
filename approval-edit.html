@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Approve Gate Pass</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<section class="form-section">
+<div class="form-card">
+<h2>Approve Gate Pass Request</h2>
+<div class="company-header">
+<h3>ESSILOR MANUFACTURING INDIA PVT. LTD. – UNIT II (100% EOU)</h3>
+<p>48, L&M, KIADB Industrial Area,</p>
+<p>Doddaballapur – 561203</p>
+<p>Bangalore North District</p>
+</div>
+<form id="approveForm">
+<input type="hidden" id="gatepass_no" name="gatepass_no">
+<!--=========================
+BASIC DETAILS
+=========================-->
+<div class="form-row">
+<div class="form-group">
+<label>From</label>
+<input type="text" id="from_location" readonly>
+</div>
+<div class="form-group">
+<label>Department</label>
+<input type="text" id="department" readonly>
+</div>
+</div>
+<div class="form-row">
+<div class="form-group">
+<label>Date</label>
+<input type="date" id="gate_pass_date" readonly>
+</div>
+<div class="form-group">
+<label>Gate Pass Type</label>
+<input type="text" id="gate_pass_type" readonly>
+</div>
+</div>
+<div class="form-group">
+ <label >The under mentioned items belonging to EMIL (P) Ltd., Doddaballapura is/are being sent to 
+        M/s </label>
+<input type="text" id="vendor_name" readonly>
+</div>
+<div class="form-group">
+<label>Purpose</label>
+<input type="text" id="purpose" readonly>
+</div>
+<div class="form-row">
+<div class="form-group">
+<label>Authority</label>
+<input type="text" value="EMIL" readonly>
+</div>
+<div class="form-group">
+<label>Through Person</label>
+<input type="text" id="through_person" readonly>
+</div>
+</div>
+<div class="form-group">
+<label>Vehicle Number</label>
+<input type="text" id="vehicle_no" readonly>
+</div>
+<!--=========================
+MATERIAL DETAILS
+=========================-->                              
+ <p class="highlight-text">
+        Kindly allow the following items to be taken outside the factory limits.
+    </p>
+<h3>Material Details</h3>
+<table class="item-table">
+<thead>
+<tr>
+<th>Description</th>
+<th>Unit</th>
+<th>Quantity</th>
+</tr>
+</thead>
+<tbody id="itemBody"></tbody>
+</table>
+<!--=========================
+APPROVE BUTTON
+=========================-->
+<div class="button-row">
+<button type="submit" class="btn">Approve</button>
+</div>
+</form>
+<!--=========================
+SUCCESS MESSAGE
+========================= -->
+<div id="successMessage" class="success-box" style="display:none;">
+<div class="success-content">
+✓ Gate Pass Request Approved Successfully!
+</div>
+</div>
+</div>
+</section>
+<script>
+/*=========================
+ GET GP NUMBER FROM URL
+=========================*/
+const params = new URLSearchParams(window.location.search);
+const gpNo = params.get("gpNo");
+if (!gpNo) {
+ console.error("No GatePass number found in URL");
+}
+console.log("Gatepass from URL:", gpNo);
+/*=========================
+ LOAD GATEPASS DATA
+=========================*/
+window.onload = loadGatePass;
+async function loadGatePass() {
+  try {
+    const res = await fetch(`/api/gatepass-no/${gpNo}`);
+if (!res.ok) {
+ const text = await res.text();
+ throw new Error(text);
+}
+
+const data = await res.json();
+    console.log("Gatepass Data:", data);
+    document.getElementById("gatepass_no").value = data.gatepass_no;
+    document.getElementById("from_location").value = data.from_location;
+    document.getElementById("department").value = data.department;
+    document.getElementById("gate_pass_date").value = data.gate_pass_date?.split("T")[0];
+    document.getElementById("gate_pass_type").value = data.gate_pass_type;
+    document.getElementById("vendor_name").value = data.vendor_name;
+    document.getElementById("purpose").value = data.purpose;
+    document.getElementById("through_person").value = data.through_person;
+    document.getElementById("vehicle_no").value = data.vehicle_no;
+
+    /* =========================
+       LOAD MATERIAL ITEMS
+    ========================= */
+    const tbody = document.getElementById("itemBody");
+    tbody.innerHTML = "";
+
+    if (data.items && data.items.length > 0) {
+      data.items.forEach(item => {
+        const row = `
+<tr>
+<td><input type="text" value="${item.description}" readonly></td>
+<td><input type="text" value="${item.unit}" readonly></td>
+<td><input type="number" value="${item.quantity}" readonly></td>
+</tr>
+`;
+        tbody.innerHTML += row;
+      });
+    } else {
+      tbody.innerHTML = `
+<tr>
+<td colspan="3">No materials found</td>
+</tr>
+`;
+    }
+  } catch (err) {
+    console.error("Error loading gatepass:", err);
+  }
+}
+
+/*=========================
+   APPROVE GATEPASS
+=========================*/
+
+document.getElementById("approveForm").addEventListener("submit", async function (e) {
+  e.preventDefault();
+  const gatepass_no = document.getElementById("gatepass_no").value;
+  try {
+    const res = await fetch("/api/approve-gatepass", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        gatepass_no: gatepass_no
+      })
+    });
+    const result = await res.json();
+    if (result.message) {
+      const msgBox = document.getElementById("successMessage");
+      msgBox.querySelector(".success-content").innerText =
+        "✓ Gate Pass Request Approved Successfully!";
+      msgBox.style.display = "flex";
+      // Hide approve button
+      document.querySelector(".button-row").style.display = "none";
+     setTimeout(() => {
+  msgBox.style.display = "none";
+  if (window.parent.closeApproverModal) {
+    window.parent.closeApproverModal();
+  }
+  if (window.parent.loadApproverData) {
+    window.parent.loadApproverData();
+  }
+}, 3000);
+    } else {
+      alert("Approval failed");
+    }
+  } catch (err) {
+    console.error("Approval failed:", err);
+    alert("Server error");
+  }
+});
+</script>
+</body>
+</html>

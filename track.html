@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Track Gate Pass</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="navbar">
+    <h2 class="logo">Gate Pass System</h2>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/track" class="active">Track Status</a>
+    </nav>
+</header>
+
+<section class="track-section">
+    <div class="track-card">
+        <h2>Track Gate Pass Applications</h2>
+        <!-- Search -->
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search by GP No / Vendor / Department">
+            <button onclick="searchGatePassButton()">Search</button>
+        </div>
+        <!-- Table -->
+<table class="track-table">
+<thead>
+<tr>
+<th>GP No</th>
+<th>Date</th>
+<th>Department</th>
+<th>Vendor</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="trackBody"></tbody>
+</table>
+    </div>
+</section>
+<!-- Gate Pass Details Popup -->
+<div id="gpPopup" class="popup" style="display:none;">
+    <div class="popup-card">
+        <h3 id="popupTitle"></h3>
+        <div id="popupDetails"></div>
+        <h4>Material Items</h4>
+<table class="track-table">
+    <thead id="popupHeader">
+        <tr>
+            <th>Description</th>
+            <th>Unit</th>
+            <th>Quantity</th>
+        </tr>
+    </thead>
+    <tbody id="popupItems"></tbody>
+</table>
+  <h4>Return History</h4>
+        <table class="track-table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Returned Qty</th>
+                    <th>Date & Time</th>
+                </tr>
+            </thead>
+            <tbody id="returnHistory"></tbody>
+        </table>
+        <button class="view-btn" onclick="printGatePass()">Print</button>
+        <button class="view-btn" onclick="closePopup()">Close</button>
+    </div>
+</div>
+<script>
+// Load all records when page opens
+window.onload = loadAll;
+async function loadAll() {
+    try {
+        const tbody = document.getElementById("trackBody");
+        tbody.innerHTML = `<tr><td colspan="6">Loading...</td></tr>`;
+        const response = await fetch("/api/gatepasses");
+        const data = await response.json();
+        displayData(data);
+    } catch (error) {
+        console.error(error);
+        document.getElementById("trackBody").innerHTML =
+            `<tr><td colspan="6">Error loading data</td></tr>`;
+    }
+}
+
+// Display table data
+function displayData(data) {
+    const tbody = document.getElementById("trackBody");
+    tbody.innerHTML = "";
+
+    // No records
+    if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6">No records found</td></tr>`;
+        return;
+    }
+
+    data.forEach(gp => {
+        const formattedDate = new Date(gp.gate_pass_date).toLocaleDateString('en-IN');
+        const row = `
+            <tr>
+                <td>${gp.gatepass_no}</td>
+                <td>${formattedDate}</td>
+                <td>${gp.department}</td>
+                <td>${gp.vendor_name}</td>
+                <td class="status ${gp.status.toLowerCase()}">${gp.status}</td>
+                <td>
+                    <button class="view-btn" onclick="viewGP(${gp.id})">
+                        View
+                    </button>
+                </td>
+            </tr>
+        `;
+        tbody.innerHTML += row;
+    });
+}
+document.getElementById("searchInput").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") {
+        searchGatePassButton();
+    }
+});
+
+function searchGatePassButton() {
+    const keyword = document.getElementById("searchInput").value.trim();
+    if (keyword === "") {
+        loadAll();
+        return;
+    }
+    searchGatePass(keyword);
+}
+
+// Search function
+async function searchGatePass(keyword) {
+    const tbody = document.getElementById("trackBody");
+    try {
+        tbody.innerHTML = `<tr><td colspan="6">Searching...</td></tr>`;
+        const response = await fetch(`/api/search?keyword=${encodeURIComponent(keyword)}`);
+        const data = await response.json();
+        if (data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6">No matching records found</td></tr>`;
+            return;
+        }
+        displayData(data);
+    } catch (error) {
+        console.error(error);
+        tbody.innerHTML = `<tr><td colspan="6">Search failed</td></tr>`;
+    }
+}
+
+let searchTimeout;
+document.getElementById("searchInput").addEventListener("input", function () {
+    const keyword = this.value.trim();
+    // Clear previous timer (important for performance)
+    clearTimeout(searchTimeout);
+    // Delay search (so API is not called on every key press)
+    searchTimeout = setTimeout(() => {
+        if (keyword === "") {
+            loadAll();
+        } else {
+            searchGatePass(keyword);
+        }
+    }, 400); // 400ms delay
+});
+
+// View full details popup
+async function viewGP(id) {
+    try {
+        const response = await fetch(`/api/gatepass/${id}`);
+        const data = await response.json();
+        const gp = data.gatepass;
+        const items = data.items;
+        const status = gp.status;
+        const requestedDate = gp.created_at
+    ? gp.created_at.replace("T", " ").split(".")[0]
+    : 'N/A';
+const gatePassDate = gp.gate_pass_date
+    ? new Date(gp.gate_pass_date).toLocaleDateString('en-IN')
+    : 'N/A';
+        document.getElementById("gpPopup").style.display = "flex";
+        document.getElementById("popupTitle").innerText =
+    "Gate Pass No: " + gp.gatepass_no;
+       let approvalSection = "";
+/* Reviewer Information */
+if (gp.reviewed_by) {
+    const reviewedDate = gp.reviewed_at
+        ? gp.reviewed_at.replace("T", " ").split(".")[0]
+        : 'N/A';
+    approvalSection += `
+    <div class="row">
+        <div><b>Reviewed By:</b> ${gp.reviewed_by}</div>
+        <div><b>Reviewed Date & Time:</b> ${reviewedDate}</div>
+    </div>
+    `;
+}
+/* Level 1 Approval */
+if (gp.l1_approved_by) {
+    const l1Date = gp.l1_approved_at
+        ? gp.l1_approved_at.replace("T", " ").split(".")[0]
+        : 'N/A';
+    approvalSection += `
+    <div class="row">
+        <div><b>L1 Approved By:</b> ${gp.l1_approved_by}</div>
+        <div><b>L1 Approval Time:</b> ${l1Date}</div>
+    </div>
+    `;
+}
+/* Level 2 Approval */
+if (gp.l2_approved_by) {
+
+    const l2Date = gp.l2_approved_at
+        ? gp.l2_approved_at.replace("T", " ").split(".")[0]
+        : 'N/A';
+
+    approvalSection += `
+    <div class="row">
+        <div><b>L2 Approved By:</b> ${gp.l2_approved_by}</div>
+        <div><b>L2 Approval Time:</b> ${l2Date}</div>
+    </div>
+    `;
+}
+
+let cancelSection = "";
+if (gp.status === "Cancelled") {
+    cancelSection = `
+    <div class="row">
+        <div><b>Remarks:</b> ${gp.cancel_reason || "No remarks provided"}</div>
+        <div></div>
+    </div>
+    `;
+}
+document.getElementById("popupDetails").innerHTML = `
+<div class="row">
+    <div><b>Requested Date & Time:</b> ${requestedDate}</div>
+    <div><b>Gate Pass Date:</b> ${gatePassDate}</div>
+</div>
+
+<div class="row">
+    <div><b>From:</b> ${gp.from_location}</div>
+    <div><b>Department:</b> ${gp.department}</div>
+</div>
+
+<div class="row">
+    <div><b>Gate Pass Type:</b> ${gp.gate_pass_type}</div>
+    <div><b>Vendor:</b> ${gp.vendor_name}</div>
+</div>
+
+<div class="row">
+    <div><b>Purpose:</b> ${gp.purpose}</div>
+    <div><b>Authority:</b> ${gp.authority}</div>
+</div>
+
+<div class="row">
+    <div><b>Through Person:</b> ${gp.through_person}</div>
+    <div><b>Vehicle No:</b> ${gp.vehicle_no}</div>
+</div>
+<div class="row no-print">
+    <div><b>Status:</b> ${gp.status}</div>
+    <div></div>
+</div>
+
+${cancelSection}
+${approvalSection}
+`;
+const header = document.getElementById("popupHeader");
+if (status === "Pending" || status === "Completed") {
+    header.innerHTML = `
+        <tr>
+            <th>Description</th>
+            <th>Unit</th>
+            <th>Quantity</th>
+            <th>Returned Quantity</th>
+            <th>Pending</th>
+        </tr>
+    `;
+}
+ else
+  {
+    header.innerHTML = `
+        <tr>
+            <th>Description</th>
+            <th>Unit</th>
+            <th>Quantity</th>
+        </tr>
+    `;
+}      
+        const tbody = document.getElementById("popupItems");
+        tbody.innerHTML = "";
+
+        if (items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3">No items</td></tr>`;
+        } else {
+            items.forEach(item => {
+
+const returned = item.returned_quantity || 0;
+const pending = item.quantity - returned;
+
+if (status === "Pending" || status === "Completed") {
+
+    tbody.innerHTML += `
+        <tr>
+            <td>${item.description}</td>
+            <td>${item.unit}</td>
+            <td>${item.quantity}</td>
+            <td>${returned}</td>
+            <td>${pending}</td>
+        </tr>
+    `;
+
+} else {
+
+    tbody.innerHTML += `
+        <tr>
+            <td>${item.description}</td>
+            <td>${item.unit}</td>
+            <td>${item.quantity}</td>
+        </tr>
+    `;
+
+}
+});
+// ✅ NOW LOAD RETURN HISTORY
+const historyResponse = await fetch(`/api/return-history/${id}`);
+const history = await historyResponse.json();
+const historyBody = document.getElementById("returnHistory");
+historyBody.innerHTML = "";
+
+if (history.length === 0) {
+    historyBody.innerHTML = `<tr><td colspan="3">No return history</td></tr>`;
+} else {
+
+    history.forEach(h => {
+        const date = h.returned_at
+  ? new Date(h.returned_at.split(".")[0].replace(" ", "T")).toLocaleString("en-IN")
+  : "-";
+
+
+
+historyBody.innerHTML += `
+<tr>
+    <td>${h.description}</td>
+    <td>${h.returned_qty}</td>
+    <td>${date}</td>
+</tr>
+`;
+
+});
+
+}
+      }
+    } catch (err) {
+        console.error(err);
+        alert("Error loading Gate Pass details");
+    }
+}
+
+// Close popup
+function closePopup() {
+    document.getElementById("gpPopup").style.display = "none";
+}
+
+function printGatePass() {
+    const printWindow = window.open("", "", "width=900,height=700");
+
+    const type = document.querySelector("#popupDetails")
+        .innerText.match(/Gate Pass Type:\s*([^\n]*)/)?.[1] || "";
+
+    const date = document.querySelector("#popupDetails")
+        .innerText.match(/Gate Pass Date:\s*([^\n]*)/)?.[1] || "";
+
+    const authority = document.querySelector("#popupDetails")
+        .innerText.match(/Authority:\s*([^\n]*)/)?.[1] || "";
+
+    const vendor = document.querySelector("#popupDetails")
+        .innerText.match(/Vendor:\s*([^\n]*)/)?.[1] || "";
+
+    const purpose = document.querySelector("#popupDetails")
+        .innerText.match(/Purpose:\s*([^\n]*)/)?.[1] || "";
+
+    const through = document.querySelector("#popupDetails")
+        .querySelector("div:nth-child(5) div:nth-child(1)")
+        .innerText.replace("Through Person:", "").trim();
+
+    const vehicle = document.querySelector("#popupDetails")
+        .querySelector("div:nth-child(5) div:nth-child(2)")
+        .innerText.replace("Vehicle No:", "").trim();
+    const reviewedBy = document.querySelector("#popupDetails")
+    .innerText.match(/Reviewed By:\s*([^\n]*)/)?.[1] || "";
+
+const l1Approver = document.querySelector("#popupDetails")
+    .innerText.match(/L1 Approved By:\s*([^\n]*)/)?.[1] || "";
+
+const l2Approver = document.querySelector("#popupDetails")
+    .innerText.match(/L2 Approved By:\s*([^\n]*)/)?.[1] || "";
+   // const formattedDate = new Date().toLocaleDateString('en-GB');
+
+    // 🔥 COMMON CONTENT FUNCTION
+    function getGatePassContent() {
+        return `
+        <div class="header">
+            <div class="left">
+                <b>ESSILOR MANUFACTURING INDIA PVT LTD</b><br>
+                <b>INDIA PVT.LTD.UNIT-II 100% EOU</b><br>
+                48,L&M,KIADB INDUSTRIAL AREA<br>
+                DODDABALLAPUR-561 203<br>
+                Bangalore North District
+            </div>
+
+            <div class="center">
+                <div class="title">GATE PASS</div>
+              <div class="gatepass-no">
+        ${document.getElementById("popupTitle").innerText.replace("Gate Pass No: ", "")}
+    </div>
+            </div>
+
+            <div class="right">
+                <span class="title">EssilorLuxottica</span>
+                <span>DODDABALLAPUR</span>
+                <span>BANGALORE</span>
+                <span>RSC-FO-05-01</span>
+            </div>
+        </div>
+
+        <div class="main-box">
+
+    <!-- Row 1 -->
+    <div class="box-row top-row">
+        <div class="row">
+             <!--  <div><b>Date:</b> ${date}</div>-->
+             <div><b>Date:</b> ${new Date().toLocaleDateString('en-IN')}</div>
+           <!-- <div><b>Date:</b> ${new Date().toLocaleDateString('en-IN')}</div> -->
+            <div><b>Gatepass Type:</b> ${type}</div>
+            <div><b>Authority:</b> ${authority}</div>
+        </div>
+    </div>
+
+    <!-- Row 2 -->
+    <div class="box-row middle-row">
+        <p>
+        1. The under mentioned items belonging to EMIL (P) Ltd., Doddaballapura is/are being sent to <strong>${vendor}</strong>
+        </p>
+
+        <p>
+        2. Kindly allow the following items to be taken outside the factory limits.
+        </p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Sl.No</th>
+                    <th>Description</th>
+                    <th>Unit</th>
+                    <th>Quantity</th>
+                </tr>
+            </thead>
+            <tbody>
+    ${(() => {
+        const rows = Array.from(document.querySelectorAll("#popupItems tr"));
+
+        let html = "";
+
+        // Add existing rows
+        rows.forEach((row, index) => {
+            const cells = row.querySelectorAll("td");
+            html += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${cells[0]?.innerText || ""}</td>
+                <td>${cells[1]?.innerText || ""}</td>
+                <td>${cells[2]?.innerText || ""}</td>
+            </tr>`;
+        });
+
+        // Add empty rows if less than 5
+        for (let i = rows.length; i < 5; i++) {
+            html += `
+            <tr>
+                <td>${i + 1}</td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>`;
+        }
+
+        return html;
+    })()}
+</tbody>
+        </table>
+    </div>
+
+    <!-- Row 3 -->
+    <div class="box-row bottom-row">
+        <div class="footer-row">
+            <div><b>Purpose:</b> ${purpose}</div>
+            <div><b>Through:</b> ${through}</div>
+            <div><b>Vehicle Reg.No:</b> ${vehicle}</div>
+        </div>
+    </div>
+<!-- Row 4 -->
+<div class="box-row">
+    <div class="signatures">
+        <div>
+            <b>Prepared By</b><br>
+            ${reviewedBy}
+        </div>
+
+        <div>
+            <b>Level 1 Authorised By</b><br>
+            ${l1Approver}
+        </div>
+
+        <div>
+            <b>Level 2 Authorised By</b><br>
+            ${l2Approver}
+        </div>
+    </div>
+</div>
+    
+</div>
+        `;
+    }
+
+    printWindow.document.write(`
+    <html>
+    <head>
+        <title>Gate Pass</title>
+        <style>
+       @page {
+    size: A4;
+    margin: 10mm;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    width: 210mm;
+    height: 297mm;
+    margin: 0 auto;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+}
+
+/* CONTAINER */
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.copy {
+    height: 148.5mm;   /* ✅ exact half of A4 */
+    padding: 6px 10px;
+    overflow: hidden;  /* ✅ prevents overlap */
+}
+
+.copy:first-child {
+    border-bottom: 2px dashed black;
+}
+
+/* HEADER */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.left {
+    width: 38%;
+    line-height: 1.6;
+}
+
+.center {
+    width: 24%;
+    text-align: center;
+}
+
+.right {
+    width: 38%;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.4;
+}
+
+.gatepass-no {
+    font-size: 22px;
+    font-weight: 700;
+    color: #000;
+    margin-top: 5px;
+}
+
+.title {
+    font-weight: bold;
+    font-size: 18px;
+    margin-bottom: 4px;
+}
+
+/* MAIN BOX */
+.main-box {
+    border: 2px solid black;
+    width: 100%;
+    height: 118mm; /* ✅ controls total content */
+    display: flex;
+    flex-direction: column;
+}
+
+/* ROWS */
+.box-row {
+    padding: 10px;
+}
+
+.top-row,
+.middle-row {
+    border-bottom: 1px solid black;
+}
+
+/* FLEX ROWS */
+.row,
+.footer-row {
+    display: flex;
+    justify-content: space-between;
+    margin: 15px 0;
+}
+
+.row div,
+.footer-row div {
+    width: 32%;
+}
+
+/* TABLE */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    border: none; /* ✅ FIX: removes double border */
+}
+
+th, td {
+    border: 1px solid black;
+    padding: 6px;
+    text-align: left;
+}
+
+th {
+    text-align: center;
+}
+.top-row {
+    flex: 0 0 auto;
+}
+
+.middle-row {
+    flex: 1;
+    overflow: hidden;
+}
+
+.bottom-row {
+    flex: 0 0 auto;
+}
+    .signatures {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 10px;
+}
+
+.signatures div {
+    width: 30%;
+    text-align: center;
+    padding-top: 5px;
+    height: 35px;
+    font-size: 13px;
+}
+
+.box-row {
+    padding: 6px;   
+}
+
+.row, .footer-row {
+    margin: 8px 0;  
+}
+
+tbody tr {
+    height: 24px;   
+}
+    .bottom-row {
+    border-bottom: 1px solid black; /* ✅ adds full line */
+}
+        </style>
+    </head>
+
+    <body>
+
+        <div class="container">
+
+            <!-- TOP COPY -->
+            <div class="copy">
+                ${getGatePassContent()}
+            </div>
+
+            <!-- BOTTOM COPY -->
+            <div class="copy">
+                ${getGatePassContent()}
+            </div>
+
+        </div>
+
+    </body>
+    </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.print();
+}
+</script>
+</body>
+</html>
+

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gate Pass System</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="gate_pass_system.png">
+</head>
+<body>
+<!-- Navbar -->
+<header class="navbar">
+    <h2 class="logo">Gate Pass System</h2>
+    <nav>
+        <a href="index.html">Home</a>
+<a href="#" onclick="openLogin('create')">Create Request</a>
+<a href="#" onclick="openTrack()">Track Status</a>
+<a href="#">Support</a>
+    </nav>
+</header>
+<!-- Banner Section -->
+<section class="banner">
+    <div class="banner-content">
+        <h1>Gate Pass Management System</h1>
+        <p>Create and track material gate passes easily and securely.</p>
+        <a href="#" class="btn" onclick="openLogin('create')">Create Gate Pass</a>
+    </div>
+</section><section class="features">
+    <h2 class="section-title">System Features</h2>
+    <div class="feature-container">
+        <div class="box" onclick="openLogin('create')" style="cursor:pointer;">
+            <div class="icon">📝</div>
+            <h3>Create Request</h3>
+            <p>Submit returnable or non-returnable material requests.</p>
+        </div>
+        <div class="box" onclick="openLogin('manager')">
+            <div class="icon">👨‍💼</div>
+            <h3>Department Manager Approval</h3>
+            <p>Department manager reviews and approves gate pass requests.</p>
+        </div>
+        <div class="box" onclick="openTrack()" style="cursor:pointer;">
+            <div class="icon">📊</div>
+            <h3>Track Status</h3>
+            <p>Check approval and gate status anytime.</p>
+        </div>
+       <div class="box" onclick="openLogin('reviewer')">
+    <div class="icon">✏️</div>
+    <h3>Review / Edit</h3>
+   <p>Review submitted requests and modify details before forwarding for approval.</p>
+</div>
+  <div class="box" onclick="openLogin('approval')">
+            <div class="icon">⚡</div>
+            <h3>Quick Approval</h3>
+            <p>Approve reviewed gate pass requests quickly and securely.</p>
+        </div>
+      <div class="box" onclick="openLogin('update')" style="cursor:pointer;">
+    <div class="icon">🔄</div>
+    <h3>Update Status</h3>
+    <p>Update and manage the current status of all gate pass requests.</p>
+</div>
+    </div>
+</section>
+<!-- Footer -->
+<footer>
+    <p>© 2026 Gate Pass System | EssilorLuxottica</p>
+</footer>
+<!-- LOGIN MODAL -->
+<div class="login-modal" id="loginModal">
+    <div class="login-modal-content">
+        <span class="close-btn" onclick="closeLogin()">&times;</span>
+        <h2>Welcome Back</h2>
+        <p class="login-subtitle">Sign in to continue</p>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <input type="text" id="email" placeholder="Email" required>
+            </div>
+            <div class="form-group">
+                <input type="password" id="password" placeholder="Password" required>
+            </div>
+            <button type="submit" class="login-submit">Login</button>
+        </form>
+    </div>
+</div>
+
+<script>
+
+let targetPage = "";
+// Open modal
+function openLogin(page) {
+    targetPage = page; // store which page user clicked
+    document.getElementById("loginModal").style.display = "flex";
+}
+
+// Close modal
+function closeLogin() {
+    document.getElementById("loginModal").style.display = "none";
+}
+
+function openTrack() {
+    window.location.href = "/track.html"; // or your track page route
+}
+// Handle form submit
+document.getElementById("loginForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    try {
+        const response = await fetch("/api/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ email, password, page: targetPage })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            localStorage.setItem("user", JSON.stringify(data.user));
+            closeLogin();
+            window.location.href = data.redirect;
+        } else {
+            alert(data.message);
+        }
+    } catch (error) {
+        console.error("Login error:", error);
+        alert("Server error");
+    }
+});
+
+// AUTO OPEN LOGIN FROM EMAIL LINK
+window.onload = function () {
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get("role");
+
+    if (role) {
+        openLogin(role);
+    }
+};
+</script>
+</body>
+</html>

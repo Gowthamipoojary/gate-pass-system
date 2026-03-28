@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Department Manager Approval</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* ==============================
+MODAL STYLES
+============================== */
+.modal{
+display:none;
+position:fixed;
+z-index:1000;
+left:0;
+top:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.5);
+}
+.modal-content{
+background:#fff;
+margin:3% auto;
+padding:15px;
+border-radius:10px;
+width:70%;
+max-height:90%;
+overflow-y:auto;
+position:relative;
+}
+.close{
+position:absolute;
+right:15px;
+top:10px;
+font-size:26px;
+cursor:pointer;
+}
+#approverFrame{
+width:100%;
+height:650px;
+border:none;
+}
+
+</style>
+</head>
+<body>
+<!-- NAVBAR -->
+<header class="navbar">
+<h2 class="logo">Gate Pass System</h2>
+<nav>
+<a href="/">Home</a>
+<a href="/deptManager.html" class="active">Approve Requests</a>
+<a href="/track.html">Track Status</a>
+</nav>
+</header>
+<!-- APPROVER PANEL -->
+<section class="track-section">
+<div class="track-card">
+<h2>Department Manager Panel</h2>
+<!-- Search -->
+<div class="search-box">
+<input
+type="text"
+id="searchInput"
+placeholder="Search by GP No / Vendor / Department"
+>
+<button onclick="searchApprover()">Search</button>
+</div>
+<!-- TABLE -->
+<table class="track-table">
+<thead>
+<tr>
+<th>GP No</th>
+<th>Date</th>
+<th>Department</th>
+<th>Vendor</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="approverBody">
+<tr>
+<td colspan="6">Loading requests...</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<!-- MODAL -->
+<div id="approverModal" class="modal">
+<div class="modal-content">
+<span class="close" onclick="closeApproverModal()">&times;</span>
+<iframe id="approverFrame"></iframe>
+</div>
+</div>
+<script>
+
+const user = JSON.parse(localStorage.getItem("user"));
+
+if (!user) {
+    alert("Please login first");
+    window.location.href = "/";
+}
+const roles = user.role.toLowerCase().split(",").map(r => r.trim());
+if (!roles.includes("manager")) {
+    alert("Access denied. Only managers allowed.");
+    window.location.href = "/";
+}
+/* ===============================
+LOAD MANAGER REQUESTS
+=============================== */
+let managerRequests = [];
+async function loadManagerRequests(){
+try{
+const res = await fetch("/api/manager-requests");
+managerRequests = await res.json();
+renderTable(managerRequests);
+}catch(err){
+console.error(err);
+}
+}
+/* ===============================
+RENDER TABLE
+=============================== */
+function renderTable(data){
+const tableBody = document.getElementById("approverBody");
+tableBody.innerHTML="";
+if(data.length===0){
+tableBody.innerHTML="<tr><td colspan='6'>No pending requests</td></tr>";
+return;
+}
+data.forEach(req=>{
+const formattedDate = new Date(req.gate_pass_date).toLocaleDateString("en-GB");
+const row = `
+<tr>
+<td>${req.gatepass_no}</td>
+<td>${formattedDate}</td>
+<td>${req.department}</td>
+<td>${req.vendor_name}</td>
+<td>${req.status}</td>
+<td>
+<button class="view-btn" onclick="viewRequest(${req.id})">View</button>
+</td>
+</tr>
+`;
+
+tableBody.innerHTML += row;
+});
+}
+/* ===============================
+SEARCH FUNCTION
+=============================== */
+function searchApprover(){
+const text = document
+.getElementById("searchInput")
+.value
+.toLowerCase();
+const filtered = managerRequests.filter(req =>
+req.gatepass_no.toLowerCase().includes(text) ||
+req.vendor_name.toLowerCase().includes(text) ||
+req.department.toLowerCase().includes(text)
+);
+renderTable(filtered);
+}
+
+/* ===============================
+VIEW REQUEST
+=============================== */
+
+function viewRequest(id){
+
+document.getElementById("approverModal").style.display="block";
+document.getElementById("approverFrame").src =
+"/view-deptManager.html?id="+id;
+}
+/* ===============================
+CLOSE MODAL
+=============================== */
+function closeApproverModal(){
+document.getElementById("approverModal").style.display="none";
+}
+/* ===============================
+APPROVE REQUEST
+=============================== */
+async function approveRequest(id){
+if(!confirm("Approve this request?")) return;
+
+await fetch("/api/manager-approve",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({id:id})
+});
+alert("Request Approved");
+loadManagerRequests();
+}
+
+/* ==============================
+REJECT REQUEST
+=============================== */
+
+async function rejectRequest(id){
+if(!confirm("Reject this request?")) return;
+await fetch("/api/manager-reject",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({id:id})
+});
+alert("Request Rejected");
+loadManagerRequests();
+}
+
+function closeReviewModal(){
+    document.getElementById("approverModal").style.display="none";
+}
+
+function loadManagerData(){
+    loadManagerRequests();
+}
+/* ===============================
+PAGE LOAD
+=============================== */
+window.onload = loadManagerRequests;
+</script>
+</body>
+</html>

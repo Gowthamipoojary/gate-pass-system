@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Review Gate Pass</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Popup Background */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+        }
+
+        /* Popup Box */
+        .modal-content {
+            background: #fff;
+            margin: 3% auto;
+            padding: 15px;
+            border-radius: 10px;
+            width: 70%;
+            max-height: 90%;
+            overflow-y: auto;
+            position: relative;
+        }
+        /* Close button */
+        .close {
+            position: absolute;
+            right: 15px;
+            top: 10px;
+            font-size: 26px;
+            cursor: pointer;
+        }
+
+        /* iframe size */
+        #reviewFrame {
+            width: 100%;
+            height: 650px;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+<header class="navbar">
+    <h2 class="logo">Gate Pass System</h2>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/review" class="active">Review Requests</a>
+        <a href="/track">Track Status</a>
+    </nav>
+</header>
+
+<section class="track-section">
+    <div class="track-card">
+
+        <h2>Gate Pass Review Panel</h2>
+
+        <!-- Search -->
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search by GP No / Vendor / Department">
+            <button onclick="searchReview()">Search</button>
+        </div>
+
+        <!-- Table -->
+        <table class="track-table">
+            <thead>
+                <tr>
+                    <th>GP No</th>
+                    <th>Date</th>
+                    <th>Department</th>
+                    <th>Vendor</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="reviewBody"></tbody>
+        </table>
+
+    </div>
+</section>
+
+<!-- Review Popup Modal -->
+<div id="reviewModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeReviewModal()">&times;</span>
+        <iframe id="reviewFrame"></iframe>
+    </div>
+</div>
+
+<script>
+    
+const user = JSON.parse(localStorage.getItem("user"));
+if (!user) {
+    alert("Please login first");
+    window.location.href = "/";
+}
+
+const roles = user.role.toLowerCase().split(",").map(r => r.trim());
+
+if (!roles.includes("reviewer")) {
+    alert("Access denied. Only reviewers allowed.");
+    window.location.href = "/";
+}
+// Load submitted requests
+window.onload = loadReviewData;
+async function loadReviewData() {
+    const tbody = document.getElementById("reviewBody");
+    tbody.innerHTML = `<tr><td colspan="6">Loading...</td></tr>`;
+
+    try {
+        const res = await fetch("/api/review-list");
+        const data = await res.json();
+        displayReviewData(data);
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6">Error loading data</td></tr>`;
+    }
+}
+function displayReviewData(data) {
+    const tbody = document.getElementById("reviewBody");
+    tbody.innerHTML = "";
+
+    if (data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6">No requests for review</td></tr>`;
+        return;
+    }
+
+    data.forEach(gp => {
+        const formattedDate = new Date(gp.gate_pass_date).toLocaleDateString('en-IN');
+
+        // ✅ ADD THIS LOGIC HERE
+        let buttonText = "Review";
+        let buttonClass = "view-btn";
+
+        if (gp.approver_l1 && gp.approver_l2) {
+            buttonText = "Edit";
+            buttonClass = "view-btn";
+        }
+
+        // ✅ USE VARIABLES HERE
+        tbody.innerHTML += `
+            <tr>
+                <td>${gp.gatepass_no}</td>
+                <td>${formattedDate}</td>
+                <td>${gp.department}</td>
+                <td>${gp.vendor_name}</td>
+                <td class="status ${gp.status.toLowerCase()}">${gp.status}</td>
+                <td>
+                    <button class="${buttonClass}" onclick="openReviewForm('${gp.gatepass_no}')">
+                        ${buttonText}
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+}
+// Open Review in Popup
+function openReviewForm(gpNo) {
+    document.getElementById("reviewFrame").src = `/review-edit?gpNo=${gpNo}`;
+    document.getElementById("reviewModal").style.display = "block";
+}
+
+// Close Popup
+function closeReviewModal() {
+    document.getElementById("reviewModal").style.display = "none";
+    document.getElementById("reviewFrame").src = "";
+}
+
+// Search
+async function searchReview() {
+    const keyword = document.getElementById("searchInput").value.trim();
+
+    if (!keyword) {
+        loadReviewData();
+        return;
+    }
+    const tbody = document.getElementById("reviewBody");
+    tbody.innerHTML = `<tr><td colspan="6">Searching...</td></tr>`;
+
+    const res = await fetch(`/api/review-search?keyword=${encodeURIComponent(keyword)}`);
+    const data = await res.json();
+
+    displayReviewData(data);
+}
+
+</script>
+
+</body>
+</html>

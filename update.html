@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <style>
+
+/* Page background */
+body{
+background: linear-gradient(135deg,#eef3f8,#f7f9fc);
+font-family: Arial, sans-serif;
+margin:0;
+}
+
+/* Section */
+.track-section{
+padding:40px 20px;
+display:flex;
+justify-content:center;
+}
+
+/* Card */
+.track-card{
+background:#ffffff;
+width:1200px;
+max-width:100%;
+padding:30px 35px;
+border-radius:10px;
+box-shadow:0 15px 40px rgba(0,0,0,0.08);
+}
+
+
+/* Title */
+.track-card h2{
+text-align:center;
+margin-bottom:25px;
+color:#003366;
+}
+
+
+/* Search */
+.search-box{
+display:flex;
+gap:10px;
+justify-content:center;
+margin-bottom:20px;
+}
+
+
+.search-box input{
+padding:10px;
+border:1px solid #ccc;
+border-radius:6px;
+}
+
+
+.search-box button{
+padding:10px 22px;
+background:#ff7a00;
+border:none;
+border-radius:6px;
+color:white;
+font-weight:bold;
+cursor:pointer;
+}
+
+
+/* =========================
+SUMMARY
+========================= */
+
+.summary-container{
+display:flex;
+justify-content:space-between;
+background:#f9fbfd;
+padding:15px;
+border-radius:8px;
+margin-bottom:25px;
+}
+
+.summary-item{
+flex:1;
+text-align:center;
+}
+
+.summary-title{
+display:block;
+font-size:14px;
+font-weight:600;
+margin-bottom:5px;
+}
+
+.summary-value{
+font-size:24px;
+font-weight:bold;
+color:#003366;
+}
+
+.summary-value.completed{
+color:#28a745;
+}
+
+.summary-value.pending{
+color:#ff9800;
+}
+
+/* =========================
+TABLE
+========================= */
+.track-table{
+width:100%;
+border-collapse:collapse;
+}
+
+.track-table th{
+background:#003366;
+color:white;
+padding:12px;
+}
+
+.track-table td{
+padding:12px;
+border-bottom:1px solid #eee;
+text-align:center;
+}
+
+.track-table tr:hover{
+background:#f4f8ff;
+}
+
+/* Button */
+.view-btn{
+padding:6px 14px;
+background:#003366;
+color:white;
+border:none;
+border-radius:4px;
+cursor:pointer;
+}
+
+.view-btn:hover{
+background:#00264d;
+}
+
+.popup{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.4);
+display:flex;
+justify-content:center;
+align-items:center;
+z-index:1000;
+}
+
+.popup-card{
+background:#fff;
+padding:25px;
+width:700px;
+border-radius:8px;
+box-shadow:0 10px 30px rgba(0,0,0,0.3);
+}
+
+.summary-value.cancelled{
+color:#dc3545;
+}
+
+textarea{
+border:1px solid #ccc;
+border-radius:6px;
+resize:none;
+font-family:Arial;
+}
+
+    </style>
+    <title>Update Status</title>
+</head>
+<body>
+    <header class="navbar">
+    <h2 class="logo">Gate Pass System</h2>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/track">Track Status</a>
+    </nav>
+</header>
+    <section class="track-section">
+<div class="track-card">
+<h2>🔄 Gate Pass Status Management</h2>
+<!-- Month Filter -->
+<div class="search-box">
+<input type="month" id="monthFilter">
+<input 
+type="text" 
+id="gatepassSearch" 
+placeholder="Search GatePass No">
+
+<button onclick="loadMonthlyStatus()">Search</button>
+</div>
+<!-- Summary Cards -->
+<div class="summary-container">
+    <div class="summary-item">
+        <span class="summary-title">Total Requests</span>
+        <span class="summary-value" id="totalCount">0</span>
+    </div>
+    <div class="summary-item">
+        <span class="summary-title">Completed</span>
+        <span class="summary-value completed" id="completedCount">0</span>
+    </div>
+    <div class="summary-item">
+        <span class="summary-title">Pending</span>
+        <span class="summary-value pending" id="pendingCount">0</span>
+    </div>
+    <div class="summary-item">
+        <span class="summary-title">Cancelled</span>
+        <span class="summary-value cancelled" id="cancelledCount">0</span>
+    </div>
+</div>
+<!-- Gatepass Table -->
+<table class="track-table">
+<thead>
+<tr>
+<th>GatePass No</th>
+<th>Vendor</th>
+<th>Type</th>
+<th>Status</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="statusTable">
+</tbody>
+</table>
+<div id="updatePopup" class="popup" style="display:none;">
+<div class="popup-card">
+<h3>Return Material Update</h3>
+<table class="track-table">
+<thead>
+<tr>
+<th>Description</th>
+<th>Unit</th>
+<th>Quantity</th>
+<th>Returned Quantity</th>
+<th>Pending</th>
+</tr>
+</thead>
+<tbody id="materialTable">
+</tbody>
+</table>
+<br>
+<button class="view-btn" onclick="saveReturn()">Save</button>
+<button class="view-btn" onclick="closePopup()">Close</button>
+</div>
+</div>
+
+<div id="cancelPopup" class="popup" style="display:none;">
+<div class="popup-card">
+<h3>Cancel Gate Pass</h3>
+<label>Reason for Cancellation</label>
+<textarea id="cancelReason" rows="4" style="width:100%;padding:8px;margin-top:8px;"></textarea>
+<br><br>
+
+<button class="view-btn" onclick="submitCancel()">Submit</button>
+<button class="view-btn" onclick="closeCancelPopup()">Close</button>
+</div>
+</div>
+</section>
+<script>
+
+try {
+    // ✅ Step 1: Backend check (IMPORTANT)
+    fetch("/api/check-auth")
+        .then(res => res.json())
+        .then(data => {
+
+            if (!data.loggedIn) {
+                window.location.replace("/");
+                return;
+            }
+
+            // ✅ Step 2: Local role check (your logic)
+            const userData = localStorage.getItem("user");
+            const user = userData ? JSON.parse(userData) : null;
+
+            const roles = user?.role
+                ?.toLowerCase()
+                .split(",")
+                .map(r => r.trim());
+
+            console.log("Roles:", roles);
+
+            if (!roles || !roles.includes("reviewer")) {
+                alert("Access denied");
+                window.location.replace("/");
+            }
+        });
+
+} catch (error) {
+    console.error("Error parsing user", error);
+    localStorage.removeItem("user");
+    window.location.replace("/");
+}
+
+
+let cancelGatepassId = null;
+document.getElementById("monthFilter").value = new Date().toISOString().slice(0,7);
+window.onload = loadMonthlyStatus;
+async function loadMonthlyStatus(){
+const month = document.getElementById("monthFilter").value;
+const gatepass = document.getElementById("gatepassSearch").value;
+const res = await fetch(`/api/update-status?month=${month}&gatepass=${gatepass}`);
+const data = await res.json();
+
+// Summary cards
+let total = data.length;
+let completed = data.filter(g => g.status === "Completed").length;
+let cancelled = data.filter(g => g.status === "Cancelled").length;
+let pending = data.filter(g => g.status !== "Completed" && g.status !== "Cancelled").length;
+document.getElementById("totalCount").innerText = total;
+document.getElementById("completedCount").innerText = completed;
+document.getElementById("pendingCount").innerText = pending;
+document.getElementById("cancelledCount").innerText = cancelled;
+let rows = "";
+data.forEach(gp => {
+let action = "";
+if(gp.status === "Completed"){
+action = `<span style="font-size:24px;color:green;font-weight:bold;">✓</span>`;
+}
+else if(gp.status === "Cancelled"){
+action = `<span style="font-size:24px;color:red;font-weight:bold;">❌</span>`;
+}
+else if(gp.gate_pass_type === "Non-Returnable"){
+action = `
+<button class="view-btn" onclick="completeGatepass(${gp.id})">Complete</button>
+<button class="view-btn" style="background:red;" onclick="cancelGatepass(${gp.id})">Cancel</button>
+`;
+}
+else if(gp.gate_pass_type === "Returnable"){
+action = `
+<button class="view-btn" onclick="updateReturn(${gp.id})">Update</button>
+<button class="view-btn" style="background:red;" onclick="cancelGatepass(${gp.id})">Cancel</button>
+`;
+}
+rows += `
+<tr>
+<td>${gp.gatepass_no}</td>
+<td>${gp.vendor_name}</td>
+<td>${gp.gate_pass_type}</td>
+<td>${gp.status}</td>
+<td>${action}</td>
+</tr>
+`;
+});
+document.getElementById("statusTable").innerHTML = rows;
+}
+
+let currentGatepassId = null;
+async function updateReturn(id){
+currentGatepassId = id;
+const res = await fetch(`/api/gatepass-items/${id}`);
+const data = await res.json();
+let rows = "";
+data.forEach(item => {
+rows += `
+<tr data-id="${item.id}" 
+    data-returned="${item.returned_quantity}" 
+    data-qty="${item.quantity}">
+<td>${item.description}</td>
+<td>${item.unit}</td>
+<td class="qty">${item.quantity}</td>
+<td>
+<input type="number" value="0" min="0"
+class="returnQty"
+max="${item.pending_quantity}"
+${item.pending_quantity == 0 ? "disabled" : ""}>
+</td>
+<td class="pendingQty">${item.pending_quantity}</td>
+</tr>
+`;
+});
+document.getElementById("materialTable").innerHTML = rows;
+document.getElementById("updatePopup").style.display = "flex";
+}
+
+async function saveReturn(){
+const rows = document.querySelectorAll("#materialTable tr");
+let materials = [];
+rows.forEach(row => {
+const itemId = row.dataset.id;
+const returnedQty = parseInt(row.querySelector(".returnQty").value) || 0;
+if(returnedQty > 0){
+materials.push({
+id: itemId,
+returnedQty
+});
+}
+});
+
+console.log("Gatepass ID:", currentGatepassId);
+console.log("Materials:", materials);
+await fetch("/api/update-return",{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body: JSON.stringify({
+gatepass_id: currentGatepassId,
+materials
+})
+});
+
+closePopup();
+loadMonthlyStatus();
+}
+
+function closePopup(){
+document.getElementById("updatePopup").style.display = "none";
+}
+
+async function completeGatepass(id){
+    if(!confirm("Are you sure you want to mark this request as Completed?")) return;
+    await fetch(`/api/complete/${id}`,{
+        method:"PUT"
+    });
+    loadMonthlyStatus();
+}
+
+function cancelGatepass(id){
+cancelGatepassId = id;
+document.getElementById("cancelReason").value = "";
+document.getElementById("cancelPopup").style.display = "flex";
+}
+
+async function submitCancel(){
+const reason = document.getElementById("cancelReason").value.trim();
+if(reason === ""){
+alert("Please enter cancellation reason");
+return;
+}
+
+await fetch(`/api/cancel/${cancelGatepassId}`,{
+method:"PUT",
+headers:{
+"Content-Type":"application/json"
+},
+body: JSON.stringify({
+reason: reason
+})
+});
+closeCancelPopup();
+loadMonthlyStatus();
+}
+
+function closeCancelPopup(){
+document.getElementById("cancelPopup").style.display = "none";
+}
+
+window.onclick = function(event) {
+const popup = document.getElementById("updatePopup");
+if(event.target === popup){
+popup.style.display = "none";
+}
+}
+
+document.addEventListener("input", function(e){
+if(e.target.classList.contains("returnQty")){
+const row = e.target.closest("tr");
+const qty = parseInt(row.dataset.qty);
+const alreadyReturned = parseInt(row.dataset.returned);
+const newReturn = parseInt(e.target.value) || 0;
+let pending = qty - (alreadyReturned + newReturn);
+if(pending < 0){
+pending = 0;
+}
+row.querySelector(".pendingQty").innerText = pending;
+}
+});
+</script>
+</body>
+</html>
+

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Approve Gate Pass</title>
+<link rel="stylesheet" href="style.css">
+
+<style>
+
+/* ==============================
+MODAL STYLES
+============================== */
+
+.modal{
+display:none;
+position:fixed;
+z-index:1000;
+left:0;
+top:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.5);
+}
+
+.modal-content{
+background:#fff;
+margin:3% auto;
+padding:15px;
+border-radius:10px;
+width:70%;
+max-height:90%;
+overflow-y:auto;
+position:relative;
+}
+
+.close{
+position:absolute;
+right:15px;
+top:10px;
+font-size:26px;
+cursor:pointer;
+}
+
+#approverFrame{
+width:100%;
+height:650px;
+border:none;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- ==============================
+NAVBAR
+============================== -->
+
+<header class="navbar">
+
+<h2 class="logo">Gate Pass System</h2>
+
+<nav>
+<a href="/">Home</a>
+<a href="/approver" class="active">Approve Requests</a>
+<a href="/track">Track Status</a>
+</nav>
+
+</header>
+
+
+<!-- ==============================
+APPROVER PANEL
+============================== -->
+
+<section class="track-section">
+
+<div class="track-card">
+
+<h2>Gate Pass Approver Panel</h2>
+
+<!-- Search Box -->
+
+<div class="search-box">
+
+<input
+type="text"
+id="searchInput"
+placeholder="Search by GP No / Vendor / Department"
+>
+
+<button onclick="searchApprover()">Search</button>
+
+</div>
+<!-- Table -->
+<table class="track-table">
+
+<thead>
+
+<tr>
+
+<th>GP No</th>
+<th>Date</th>
+<th>Department</th>
+<th>Vendor</th>
+<th>Status</th>
+<th>Action</th>
+
+</tr>
+
+</thead>
+
+<tbody id="approverBody">
+
+<tr>
+<td colspan="6">Loading requests...</td>
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+
+</section>
+
+
+<!-- ==============================
+APPROVER MODAL POPUP
+============================== -->
+
+<div id="approverModal" class="modal">
+
+<div class="modal-content">
+
+<span class="close" onclick="closeApproverModal()">&times;</span>
+
+<iframe id="approverFrame"></iframe>
+
+</div>
+
+</div>
+
+<script>
+
+window.onload = loadApproverData;
+
+
+/* ==============================
+LOAD APPROVER DATA
+============================== */
+
+async function loadApproverData(){
+
+const tbody = document.getElementById("approverBody");
+
+tbody.innerHTML =
+`<tr><td colspan="6">Loading...</td></tr>`;
+
+try{
+
+const res = await fetch("/api/approver-list");
+
+if(!res.ok){
+throw new Error("Failed to load data");
+}
+
+const data = await res.json();
+
+displayApproverData(data);
+
+}
+catch(err){
+
+tbody.innerHTML =
+`<tr><td colspan="6">Failed to load data</td></tr>`;
+
+}
+
+}
+
+
+/* ==============================
+DISPLAY DATA
+============================== */
+
+function displayApproverData(data){
+
+const tbody = document.getElementById("approverBody");
+
+tbody.innerHTML="";
+
+if(data.length === 0){
+
+tbody.innerHTML =
+`<tr><td colspan="6">No requests pending approval</td></tr>`;
+
+return;
+
+}
+
+data.forEach(gp => {
+
+const formattedDate =
+new Date(gp.gate_pass_date).toLocaleDateString("en-IN");
+
+const row = `
+<tr>
+
+<td>${gp.gatepass_no}</td>
+
+<td>${formattedDate}</td>
+
+<td>${gp.department}</td>
+
+<td>${gp.vendor_name}</td>
+
+<td class="status ${gp.status.toLowerCase()}">
+${gp.status}
+</td>
+
+<td>
+
+<button class="view-btn"
+onclick="openApproverForm('${gp.gatepass_no}')">
+Approve
+</button>
+
+</td>
+
+</tr>
+`;
+
+tbody.innerHTML += row;
+
+});
+
+}
+
+
+/* ==============================
+OPEN APPROVER POPUP
+============================== */
+
+function openApproverForm(gpNo){
+
+document.getElementById("approverFrame").src =
+`/approval-edit?gpNo=${gpNo}`;
+
+document.getElementById("approverModal").style.display = "block";
+
+}
+
+
+/* ==============================
+CLOSE POPUP
+============================== */
+
+function closeApproverModal(){
+
+document.getElementById("approverModal").style.display = "none";
+
+document.getElementById("approverFrame").src = "";
+
+loadApproverData();
+
+}
+
+
+/* ==============================
+CLICK OUTSIDE MODAL
+============================== */
+
+window.onclick = function(event){
+
+const modal = document.getElementById("approverModal");
+
+if(event.target === modal){
+
+closeApproverModal();
+
+}
+
+}
+
+
+/* ==============================
+SEARCH
+============================== */
+
+async function searchApprover(){
+
+const keyword =
+document.getElementById("searchInput").value.trim();
+
+const tbody =
+document.getElementById("approverBody");
+
+if(!keyword){
+
+loadApproverData();
+return;
+
+}
+
+tbody.innerHTML =
+`<tr><td colspan="6">Searching...</td></tr>`;
+
+try{
+
+const res =
+await fetch(`/api/approver-search?keyword=${encodeURIComponent(keyword)}`);
+
+const data =
+await res.json();
+
+displayApproverData(data);
+
+}
+catch(err){
+
+tbody.innerHTML =
+`<tr><td colspan="6">Search failed</td></tr>`;
+
+}
+
+}
+
+</script>
+
+</body>
+</html>

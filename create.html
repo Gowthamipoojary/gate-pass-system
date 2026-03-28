@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Gate Pass</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .input-error {
+        border: 2px solid red !important;
+              }
+
+        .error-msg {
+        color: red;
+        font-size: 12px;
+            }
+    </style>
+</head>
+<body>
+<header class="navbar">
+    <h2 class="logo">Gate Pass System</h2>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/create" class="active">Create Request</a>
+        <a href="/track">Track Status</a>
+    </nav>
+</header>
+<section class="form-section">
+    <div class="form-card">
+        <h2>Create Gate Pass Request</h2>
+        <div class="company-header">
+    <h3>ESSILOR MANUFACTURING INDIA PVT. LTD. – UNIT II (100% EOU)</h3>
+    <p>48, L&M, KIADB Industrial Area,</p>
+    <p>Doddaballapur – 561203</p>
+    <p>Bangalore North District</p>
+</div>
+       <form id="createForm">
+            <!-- Basic Details -->
+            <div class="form-row">
+                  <div class="form-group">
+        <label>From </label>
+        <input type="text" id="from_location" name="from_location" readonly>
+    </div>
+    <div class="form-group">
+        <label>Department</label>
+        <input type="text" id="department" name="department" readonly>
+    </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" id="gate_pass_date" name="gate_pass_date">
+                    <small class="error-msg" id="dateError"></small>
+                </div>
+                <div class="form-group">
+                    <label>Gate Pass Type</label>
+                    <select name="gate_pass_type">
+                        <option value="Returnable">RGP</option>
+                        <option value="Non-Returnable">NRGP</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label >The under mentioned items belonging to EMIL (P) Ltd., Doddaballapura is/are being sent to 
+        M/s </label>
+                 <input type="text" id="vendor_name" name="vendor_name">
+                 <small class="error-msg" id="vendorError"></small>
+            </div>
+            <div class="form-group">
+                <label>Purpose</label>
+                 <input type="text" id="purpose" name="purpose">
+                 <small class="error-msg" id="purposeError"></small>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Authority</label>
+                    <input type="text" name="authority" value="EMIL" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Through Person</label>
+                    <input type="text" id="through_person" name="through_person">
+                    <small class="error-msg" id="throughError"></small>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Vehicle Number</label>
+               <input type="text" id="vehicle_no" name="vehicle_no">
+               <small class="error-msg" id="vehicleError"></small>
+            </div>
+            <p class="highlight-text">
+        Kindly allow the following items to be taken outside the factory limits.</p>
+            <!-- Material Items Table -->
+            <h3>Material Details</h3>
+<table class="item-table" id="itemTable">
+    <thead>
+        <tr>
+            <th>Description</th>
+            <th>Unit</th>
+            <th>Quantity</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody id="itemBody">
+        <tr>
+            <td><input type="text" name="description[]"></td>
+             <td>
+        <select name="unit[]">
+            <option value="">Select Unit</option>
+            <option value="Nos">Nos</option>
+            <option value="Kg">Kg</option>
+            <option value="Grams">Grams</option>
+            <option value="Liters">Liters</option>
+            <option value="Meters">Meters</option>
+            <option value="Boxes">Boxes</option>
+            <option value="Packets">Packets</option>
+            <option value="Rolls">Rolls</option>
+            <option value="OHS">OHS</option>
+            <option value="Others">Others</option>
+        </select>
+    </td>
+            <td><input type="number" name="quantity[]"></td>
+            <td>
+                <button type="button" class="remove-btn" onclick="removeRow(this)">Remove</button>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+<button type="button" id="addItemBtn" class="add-btn" onclick="addRow()">+ Add Item</button>
+            <button class="btn">Submit Request</button>
+            <input type="hidden" id="user_id" name="user_id">
+        </form>
+      <div id="successMessage" class="success-box" style="display:none;">
+    <div class="success-content">
+        ✓ Gate Pass Request Submitted Successfully!
+    </div>
+</div>
+    </div>
+</section>
+<script>
+
+
+try {
+    // ✅ Step 1: Backend check (IMPORTANT)
+    fetch("/api/check-auth")
+        .then(res => res.json())
+        .then(data => {
+
+            if (!data.loggedIn) {
+                window.location.replace("/");
+                return;
+            }
+
+            // ✅ Step 2: Local role check (your logic)
+            const userData = localStorage.getItem("user");
+            const user = userData ? JSON.parse(userData) : null;
+
+            const roles = user?.role
+                ?.toLowerCase()
+                .split(",")
+                .map(r => r.trim());
+
+            console.log("Roles:", roles);
+
+            if (!roles || !roles.includes("user")) {
+                alert("Access denied");
+                window.location.replace("/");
+            }
+        });
+
+} catch (error) {
+    console.error("Error parsing user", error);
+    localStorage.removeItem("user");
+    window.location.replace("/");
+}
+
+function addRow() {
+    let tableBody = document.getElementById("itemBody");
+    let rowCount = tableBody.rows.length;
+    // ===== Maximum 5 items =====
+    if (rowCount >= 5) {
+        alert("Maximum 5 items allowed");
+        return;
+    }
+    let newRow = document.createElement("tr");
+    newRow.innerHTML = `
+        <td><input type="text" name="description[]"></td>
+        <td>
+            <select name="unit[]">
+                <option value="">Select Unit</option>
+                <option value="Nos">Nos</option>
+                <option value="Kg">Kg</option>
+                <option value="Grams">Grams</option>
+                <option value="Liters">Liters</option>
+                <option value="Meters">Meters</option>
+                <option value="Boxes">Boxes</option>
+                <option value="Packets">Packets</option>
+                <option value="Rolls">Rolls</option>
+                <option value="OHS">OHS</option>
+                <option value="Others">Others</option>
+            </select>
+        </td>
+        <td><input type="number" name="quantity[]"></td>
+        <td>
+            <button type="button" class="remove-btn" onclick="removeRow(this)">Remove</button>
+        </td>
+    `;
+
+    tableBody.appendChild(newRow);
+    updateRemoveButtons();
+     if (tableBody.rows.length === 5) {
+        document.getElementById("addItemBtn").disabled = true;
+    }
+}
+function updateRemoveButtons() {
+    const tableBody = document.getElementById("itemBody");
+    const rows = tableBody.rows;
+
+    for (let i = 0; i < rows.length; i++) {
+        const btn = rows[i].querySelector(".remove-btn");
+
+        if (rows.length === 1) {
+            btn.disabled = true;
+        } else {
+            btn.disabled = false;
+        }
+    }
+}
+
+function removeRow(button) {
+    let tableBody = document.getElementById("itemBody");
+
+    if (tableBody.rows.length <= 1) {
+        alert("At least one item is required");
+        return;
+    }
+    button.parentElement.parentElement.remove();
+    updateRemoveButtons();
+    // Enable add button again
+    document.getElementById("addItemBtn").disabled = false;
+}
+window.onload = function() {
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!user) {
+        window.location.href = "/";
+        return;
+    }
+    document.getElementById("from_location").value = user.name;
+    document.getElementById("department").value = user.department;
+    document.getElementById("user_id").value = user.id;
+    // ===== Date settings =====
+    const today = new Date().toISOString().split("T")[0];
+    const dateInput = document.getElementById("gate_pass_date");
+    dateInput.value = today;        
+    dateInput.min = today;          
+    // Remove red border while typing (works for dynamic rows also)
+    document.addEventListener("input", function(e) {
+        if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") {
+            e.target.classList.remove("input-error");
+        }
+    });
+       updateRemoveButtons();
+};
+
+document.getElementById("createForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    let isValid = true;
+    // Clear old errors
+    document.querySelectorAll(".error-msg").forEach(e => e.textContent = "");
+    document.querySelectorAll("input, select").forEach(field => {
+        field.classList.remove("input-error");
+    });
+    // ===== Field Validation =====
+    const date = document.getElementById("gate_pass_date");
+    const vendor = document.getElementById("vendor_name");
+    const purpose = document.getElementById("purpose");
+    const through = document.getElementById("through_person");
+    const vehicle = document.getElementById("vehicle_no");
+    const today = new Date().toISOString().split("T")[0];
+    if (!date.value) {
+    date.classList.add("input-error");
+    document.getElementById("dateError").textContent = "Date is required";
+    isValid = false;
+    }
+    else if (date.value < today) {
+    date.classList.add("input-error");
+    document.getElementById("dateError").textContent = "Past date is not allowed";
+    isValid = false;
+    }
+
+    if (!vendor.value.trim()) {
+        vendor.classList.add("input-error");
+        document.getElementById("vendorError").textContent = "Vendor name is required";
+        isValid = false;
+    }
+    if (!purpose.value.trim()) {
+        purpose.classList.add("input-error");
+        document.getElementById("purposeError").textContent = "Purpose is required";
+        isValid = false;
+    }
+    // ===== Material Table Validation =====
+    const descriptions = document.querySelectorAll("input[name='description[]']");
+    const units = document.querySelectorAll("select[name='unit[]']");
+    const quantities = document.querySelectorAll("input[name='quantity[]']");
+
+    for (let i = 0; i < descriptions.length; i++) {
+        if (descriptions[i].value.trim() === "") {
+            descriptions[i].classList.add("input-error");
+            isValid = false;
+        }
+        if (units[i].value === "") {
+            units[i].classList.add("input-error");
+            isValid = false;
+        }
+        if (quantities[i].value === "" || quantities[i].value <= 0) {
+            quantities[i].classList.add("input-error");
+            isValid = false;
+        }
+    }
+    // Stop submission if any error
+    if (!isValid) return;
+    // Prevent multiple submit
+    document.querySelector(".btn").disabled = true;
+    // ===== Your existing code =====
+    const formData = new FormData(this);
+    const data = {};
+    formData.forEach((value, key) => {
+        if (data[key]) {
+            if (!Array.isArray(data[key])) {
+                data[key] = [data[key]];
+            }
+            data[key].push(value);
+        } else {
+            data[key] = value;
+        }
+    });
+    const response = await fetch("/api/create", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    });
+    if (response.ok) {
+        const result = await response.json();
+        const gatepassNo = result.gatepassNo;
+
+        document.querySelector(".success-content").innerHTML =
+            `✓ Gate Pass Submitted Successfully <br> Gate Pass No: ${gatepassNo}`;
+
+        document.getElementById("successMessage").style.display = "flex";
+        this.reset();
+        const user = JSON.parse(localStorage.getItem("user"));
+        document.getElementById("from_location").value = user.name;
+        document.getElementById("department").value = user.department;
+        document.getElementById("user_id").value = user.id;
+
+        setTimeout(() => {
+            document.getElementById("successMessage").style.display = "none";
+        }, 3000);
+
+        document.querySelector(".btn").disabled = false;
+
+    } else {
+        document.querySelector(".btn").disabled = false;
+    }
+});
+</script>
+</body>
+</html>

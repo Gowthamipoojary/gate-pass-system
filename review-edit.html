@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Review Gate Pass</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<section class="form-section">
+<div class="form-card">
+<h2>Review Gate Pass Request</h2>
+<div class="company-header">
+    <h3>ESSILOR MANUFACTURING INDIA PVT. LTD. – UNIT II (100% EOU)</h3>
+    <p>48, L&M, KIADB Industrial Area,</p>
+    <p>Doddaballapur – 561203</p>
+    <p>Bangalore North District</p>
+</div>
+<form id="createForm">
+<input type="hidden" id="gatepass_no" name="gatepass_no">
+<!-- Basic Details -->
+<div class="form-row">
+    <div class="form-group">
+        <label>From</label>
+        <input type="text" id="from_location" name="from_location" readonly>
+    </div>
+    <div class="form-group">
+        <label>Department</label>
+        <input type="text" id="department" name="department" readonly>
+    </div>
+</div>
+<div class="form-row">
+    <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="gate_pass_date" name="gate_pass_date">
+    </div>
+    <div class="form-group">
+        <label>Gate Pass Type</label>
+        <select name="gate_pass_type" id="gate_pass_type">
+            <option value="Returnable">RGP</option>
+            <option value="Non-Returnable">NRGP</option>
+        </select>
+    </div>
+</div>
+<div class="form-group">
+    <label>The under mentioned items belonging to EMIL (P) Ltd., Doddaballapura is/are being sent to 
+        M/s</label>
+    <input type="text" id="vendor_name" name="vendor_name">
+</div>
+<div class="form-group">
+     <label >Purpose </label>
+    <input type="text" id="purpose" name="purpose">
+</div>
+<div class="form-row">
+    <div class="form-group">
+        <label>Authority</label>
+        <input type="text" value="EMIL" readonly>
+    </div>
+    <div class="form-group">
+        <label>Through Person</label>
+        <input type="text" id="through_person" name="through_person">
+    </div>
+</div>
+<div class="form-group">
+    <label>Vehicle Number</label>
+    <input type="text" id="vehicle_no" name="vehicle_no">
+</div>
+ <p class="highlight-text">
+        Kindly allow the following items to be taken outside the factory limits.
+    </p>
+
+<h3>Material Details</h3>
+<table class="item-table">
+<thead>
+<tr>
+<th>Description</th>
+<th>Unit</th>
+<th>Quantity</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="itemBody"></tbody>
+</table>
+<button type="button" class="add-btn" onclick="addRow()">+ Add Item</button>
+<div class="button-row">
+    <button type="button" class="btn" onclick="enableEdit()">Edit</button>
+    <button type="submit" class="btn">Send to Approver</button>
+</div>
+</form>
+<div id="successMessage" class="success-box" style="display:none;">
+    <div class="success-content">
+        ✓ Gate Pass Request Sent For Approval Successfully!
+    </div>
+</div>
+    <div id="approverPopup" class="success-box" style="display:none;">
+    <div class="success-content" style="width:350px;">
+      <h3 style="margin-bottom:15px;">Select Approvers</h3>
+<select id="approverL1" style="width:100%; padding:8px; margin-bottom:10px;">
+    <option value="">Loading...</option>
+</select>
+<select id="approverL2" style="width:100%; padding:8px; margin-bottom:15px;">
+    <option value="">Loading...</option>
+</select>
+      <div style="display:flex; justify-content:center; gap:15px;">
+    <button onclick="confirmSend()" class="btn">Send</button>
+    <button onclick="closeApproverPopup()" class="btn">Cancel</button>
+</div>
+    </div>
+</div>
+</div>
+</section>
+<script>
+// Get GP number from URL
+const params = new URLSearchParams(window.location.search);
+const gpNo = params.get("gpNo");
+// On load
+window.onload = function () {
+    loadGatePass();
+};
+
+// ===============================
+// Read-only mode
+// ===============================
+
+function setReadOnly() {
+    document.querySelectorAll("#createForm input, #createForm select").forEach(el => {
+        if (el.type !== "hidden") el.disabled = true;
+    });
+    document.querySelector(".add-btn").disabled = true;
+    document.querySelectorAll(".remove-btn").forEach(btn => {
+        btn.disabled = true;
+    });
+}
+// ===============================
+// Enable editing
+// ===============================
+function enableEdit() {
+
+    // Enable all form fields
+    document.querySelectorAll("#createForm input, #createForm select").forEach(el => {
+        el.disabled = false;
+    });
+    // Disable Material Details fields
+    document.querySelectorAll("input[name='description[]']").forEach(el => {
+        el.disabled = true;
+    });
+
+    document.querySelectorAll("select[name='unit[]']").forEach(el => {
+        el.disabled = true;
+    });
+
+    document.querySelectorAll("input[name='quantity[]']").forEach(el => {
+        el.disabled = true;
+    });
+
+    // Disable Add button
+    document.querySelector(".add-btn").disabled = true;
+
+    // Disable Remove buttons
+    document.querySelectorAll(".remove-btn").forEach(btn => {
+        btn.disabled = true;
+    });
+
+}
+// ===============================
+// Load Gate Pass data
+// ===============================
+async function loadGatePass() {
+    if (!gpNo) return;
+
+    try {
+        const res = await fetch(`/api/gatepass-by-no/${gpNo}`);
+       if (!res.ok) {
+       throw new Error("Gatepass not found");
+       }
+
+const data = await res.json();
+        const gp = data.gatepass;
+        window.gpData = gp;
+        const items = data.items;
+        document.getElementById("gatepass_no").value = gp.gatepass_no;
+        document.getElementById("from_location").value = gp.from_location || "";
+        document.getElementById("department").value = gp.department || "";
+        document.getElementById("gate_pass_date").value = gp.gate_pass_date.split("T")[0];
+        document.getElementById("gate_pass_type").value = gp.gate_pass_type;
+        document.getElementById("vendor_name").value = gp.vendor_name || "";
+        document.getElementById("purpose").value = gp.purpose || "";
+        document.getElementById("through_person").value = gp.through_person || "";
+        document.getElementById("vehicle_no").value = gp.vehicle_no || "";
+        // Load items
+        const tbody = document.getElementById("itemBody");
+        tbody.innerHTML = "";
+        items.forEach(item => {
+            tbody.innerHTML += `
+            <tr>
+                <td><input type="text" name="description[]" value="${item.description}"></td>
+                <td>
+                    <select name="unit[]">
+                        <option ${item.unit==='Nos'?'selected':''}>Nos</option>
+                        <option ${item.unit==='Kg'?'selected':''}>Kg</option>
+                        <option ${item.unit==='Grams'?'selected':''}>Grams</option>
+                        <option ${item.unit==='Liters'?'selected':''}>Liters</option>
+                        <option ${item.unit==='Meters'?'selected':''}>Meters</option>
+                        <option ${item.unit==='Boxes'?'selected':''}>Boxes</option>
+                        <option ${item.unit==='Packets'?'selected':''}>Packets</option>
+                    </select>
+                </td>
+                <td><input type="number" name="quantity[]" value="${item.quantity}"></td>
+                <td>
+                    <button type="button" class="remove-btn" onclick="removeRow(this)">Remove</button>
+                </td>
+            </tr>
+            `;
+        });
+// Hide edit buttons if fully approved
+        if (gp.l1_approved_at && gp.l2_approved_at) {
+            document.querySelector(".button-row").style.display = "none";
+        }
+        updateItemControls();
+        setReadOnly();
+
+    } catch (err) {
+        console.error(err);
+        alert("Error loading data");
+    }
+}
+// ===============================
+// Add row (Max 5)
+// ===============================
+function addRow() {
+    const tbody = document.getElementById("itemBody");
+    const rowCount = tbody.rows.length;
+    if (rowCount >= 5) {
+        alert("Maximum 5 items allowed");
+        return;
+    }
+    tbody.innerHTML += `
+    <tr>
+        <td><input type="text" name="description[]"></td>
+        <td>
+            <select name="unit[]">
+                <option>Nos</option>
+                <option>Kg</option>
+                <option>Grams</option>
+                <option>Liters</option>
+                <option>Meters</option>
+                <option>Boxes</option>
+                <option>Packets</option>
+            </select>
+        </td>
+        <td><input type="number" name="quantity[]"></td>
+        <td>
+            <button type="button" class="remove-btn" onclick="removeRow(this)">Remove</button>
+        </td>
+    </tr>
+    `;
+    updateItemControls();
+}
+
+// ===============================
+// Remove row (Min 1)
+// ===============================
+
+function removeRow(btn) {
+    const tbody = document.getElementById("itemBody");
+    const rowCount = tbody.rows.length;
+    if (rowCount <= 1) {
+        alert("At least one item is required");
+        return;
+    }
+    btn.closest("tr").remove();
+    updateItemControls();
+}
+// ===============================
+// Control Add/Remove buttons
+// ===============================
+function updateItemControls() {
+    const tbody = document.getElementById("itemBody");
+    const rowCount = tbody.rows.length;
+    // Disable remove if only 1 row
+    document.querySelectorAll(".remove-btn").forEach(btn => {
+        btn.disabled = (rowCount <= 1);
+    });
+    // Disable add if 5 rows
+    document.querySelector(".add-btn").disabled = (rowCount >= 5);
+}
+
+
+async function openApproverPopup() {
+    const popup = document.getElementById("approverPopup");
+    popup.style.display = "flex";
+
+    const selectL1 = document.getElementById("approverL1");
+    const selectL2 = document.getElementById("approverL2");
+
+    try {
+        const res = await fetch("/api/approvers");
+        const data = await res.json();
+
+        selectL1.innerHTML = `<option value="">-- Select Level 1 Approver --</option>`;
+        selectL2.innerHTML = `<option value="">-- Select Level 2 Approver --</option>`;
+
+        data.forEach(user => {
+            if (user.role.includes("approverL1")) {
+                selectL1.innerHTML += `<option value="${user.id}">${user.name}</option>`;
+            }
+            if (user.role.includes("approverL2")) {
+                selectL2.innerHTML += `<option value="${user.id}">${user.name}</option>`;
+            }
+        });
+
+        // ===============================
+        // CONTROL EDIT BASED ON APPROVAL
+        // ===============================
+
+        const l1Approved = window.gpData.l1_approved_at;
+        const l2Approved = window.gpData.l2_approved_at;
+
+        // Case 1: L1 NOT approved → allow both
+        if (!l1Approved) {
+            selectL1.disabled = false;
+            selectL2.disabled = false;
+        }
+        // Case 2: L1 approved → allow only L2
+        else if (l1Approved && !l2Approved) {
+            selectL1.disabled = true;
+            selectL2.disabled = false;
+
+            alert("L1 already approved. You can change only L2.");
+        }
+        // Case 3: Both approved → no edit
+        else {
+            selectL1.disabled = true;
+            selectL2.disabled = true;
+
+            alert("Both approvals completed. Editing not allowed.");
+        }
+
+        // Pre-select current values
+        selectL1.value = window.gpData.approver_l1 || "";
+        selectL2.value = window.gpData.approver_l2 || "";
+
+    } catch (err) {
+        console.error(err); // 🔥 ADD THIS
+        alert("Error loading approvers");
+    }
+}
+function closeApproverPopup() {
+    document.getElementById("approverPopup").style.display = "none";
+}
+async function confirmSend() {
+  const approverL1 = document.getElementById("approverL1").value;
+  const approverL2 = document.getElementById("approverL2").value;
+  const gatepassNo = document.getElementById("gatepass_no").value;
+
+  if (!approverL1 || !approverL2) {
+    alert("Please select both Approver L1 and Approver L2");
+    return;
+  }
+  try {
+    /* ===============================
+       1️⃣ SAVE REVIEW DATA FIRST
+    =============================== */
+    const formData = new FormData(document.getElementById("createForm"));
+    const payload = {
+      gatepass_no: formData.get("gatepass_no"),
+      vendor_name: formData.get("vendor_name"),
+      purpose: formData.get("purpose"),
+      through_person: formData.get("through_person"),
+      vehicle_no: formData.get("vehicle_no"),
+      gate_pass_date: formData.get("gate_pass_date"),
+      gate_pass_type: formData.get("gate_pass_type")
+    //  description: formData.getAll("description[]"),
+      //unit: formData.getAll("unit[]"),
+      //quantity: formData.getAll("quantity[]")
+    };
+
+    await fetch("/api/review-update", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    /* ===============================
+       2️⃣ SEND TO APPROVER
+    =============================== */
+    const res = await fetch("/api/send-to-approver", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        gatepass_no: gatepassNo,
+        approver_l1: approverL1,
+        approver_l2: approverL2
+      })
+    });
+
+    const result = await res.json();
+    if (result.success) {
+      closeApproverPopup();
+      const msgBox = document.getElementById("successMessage");
+      msgBox.querySelector(".success-content").innerText =
+        "✓ Gate Pass Request Sent for Approval Successfully!";
+      msgBox.style.display = "flex";
+
+      setReadOnly();
+      document.querySelector(".button-row").style.display = "none";
+
+      setTimeout(() => {
+        msgBox.style.display = "none";
+        window.parent.closeReviewModal();
+        window.parent.loadReviewData();
+      }, 3000);
+
+    } else {
+      alert("Failed to send");
+    }
+
+  } catch (err) {
+    console.error(err);
+    alert("Server error");
+  }
+}
+
+document.getElementById("createForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    let isValid = true;
+    // Remove old error styles
+    document.querySelectorAll("#createForm input, #createForm select").forEach(el => {
+        el.style.border = "";
+    });
+
+    // Basic fields
+    const date = document.getElementById("gate_pass_date");
+    const type = document.getElementById("gate_pass_type");
+    const vendor = document.getElementById("vendor_name");
+    const purpose = document.getElementById("purpose");
+    const through = document.getElementById("through_person");
+    const vehicle = document.getElementById("vehicle_no");
+
+    // Check required fields
+    [date, type, vendor, purpose, through, vehicle].forEach(field => {
+        if (!field.value.trim()) {
+            field.style.border = "2px solid red";
+            isValid = false;
+        }
+    });
+
+    // Validate Material Table
+    const descriptions = document.querySelectorAll("input[name='description[]']");
+    const units = document.querySelectorAll("select[name='unit[]']");
+    const quantities = document.querySelectorAll("input[name='quantity[]']");
+
+    for (let i = 0; i < descriptions.length; i++) {
+
+        if (!descriptions[i].value.trim()) {
+            descriptions[i].style.border = "2px solid red";
+            isValid = false;
+        }
+        if (!units[i].value.trim()) {
+            units[i].style.border = "2px solid red";
+            isValid = false;
+        }
+        if (!quantities[i].value || quantities[i].value <= 0) {
+            quantities[i].style.border = "2px solid red";
+            isValid = false;
+        }
+    }
+
+    if (!isValid) {
+        alert("Please fill all required fields before sending to approver.");
+        return;
+    }
+    // If everything is valid → open popup
+    openApproverPopup();
+});
+</script>
+</body>
+</html>

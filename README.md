@@ -252,8 +252,7 @@ Cancelled (optional)
 
 ## 📦 Project Status
 
-This project was developed as part of a **real-world industrial implementation at EssilorLuxottica**, focusing on workflow automation, approval systems, and material tracking.
-
+This project was developed as part of a real-world industrial implementation, focusing on workflow automation, approval systems, and material tracking.
 ---
 
 ## 👩‍💻 Developer

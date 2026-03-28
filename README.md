@@ -252,7 +252,8 @@ Cancelled (optional)
 
 ## 📦 Project Status
 
-This project was developed as part of a real-world industrial implementation, focusing on workflow automation, approval systems, and material tracking.
+This project was developed as part of a real-world enterprise use case, focusing on workflow automation, multi-level approvals, and material tracking systems. 
+
 ---
 
 ## 👩‍💻 Developer
